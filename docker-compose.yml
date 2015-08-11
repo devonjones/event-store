@@ -1,0 +1,128 @@
+###############################################################################
+# orchestration
+################################################################################
+# Run this command first
+# Assume docker0 interface is 172.17.42.1
+dns:
+  hostname: dns
+  image: tonistiigi/dnsdock
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+  ports:
+    - 53:53/udp
+    - 80:80
+  restart: "on-failure:5"
+
+################################################################################
+# daemon container
+################################################################################
+# used to share the dns settings across all containers
+# also can be used for one off commands in the "cluster"
+dev: &ELK
+  hostname: dev
+  image: ubuntu:14.04
+  dns:
+    - 172.17.42.1
+  dns_search:
+    - docker
+  restart: "on-failure:5"
+
+################################################################################
+# data disks
+################################################################################
+elkdata:
+  hostname: elkdata
+  image: alpine
+  command: /bin/true
+  volumes:
+    - /data
+
+################################################################################
+# logging
+################################################################################
+#logspout:
+#  <<: *ELK
+#  hostname: logspout
+#  #image: docker.sendgrid.net/sendgrid/logspout
+#  image: gliderlabs/logspout:master
+#  environment:
+#    - ROUTE_URIS=logstash://elk-logstash.docker:5000
+#  volumes:
+#    - /var/run/docker.sock:/var/run/docker.sock
+#  links:
+#    - logstash
+#    - kibana
+
+#logstash:
+#  <<: *ELK
+#  hostname: logstash
+#  image: deviantony/elk-logstash
+#  ports:
+#   - "5000:5000"
+#   - "8080:8080"
+#  expose:
+#    - "5000"
+#    - "8080"
+#  environment:
+#    - LOGSPOUT=ignore  # prevent infinate logging loop
+#  volumes:
+#    - logstash-conf:/etc/logstash/conf.d
+#  links:
+#    - elksearch:elasticsearch
+
+logstash:
+  <<: *ELK
+  hostname: logstash
+  image: devonjones/elk-logstash
+  ports:
+   - "8080:8080"
+  expose:
+    - "8080"
+  environment:
+    - LOGSPOUT=ignore  # prevent infinate logging loop
+  volumes:
+    - logstash-conf:/config-dir
+  links:
+    - elksearch:elasticsearch
+  command:
+    - logstash -f /config-dir/logstash.conf
+
+#logstashbulk:
+#  <<: *ELK
+#  hostname: logstash-bulk
+#  image: devonjones/elk-logstash
+#  ports:
+#   - "8081:8081"
+#  expose:
+#    - "8081"
+#  environment:
+#    - LOGSPOUT=ignore  # prevent infinate logging loop
+#  volumes:
+#    - logstash-bulk:/config-dir
+#  links:
+#    - elksearch:elasticsearch
+#  command:
+#    - logstash -f /config-dir/logstash.conf
+
+# Avoid calling this elasticsearch, which is used in SG map pipeline
+elksearch:
+  <<: *ELK
+  hostname: elksearch
+  image: deviantony/elk-elasticsearch
+  expose:
+    - "9200"
+  volumes_from:
+    - elkdata
+
+kibana:
+  <<: *ELK
+  hostname: kibana
+  image: deviantony/elk-kibana
+  ports:
+      - "5601:5601"
+  expose:
+      - "5601"
+  volumes:
+    - logstash-conf:/opt/logstash/conf.d
+  links:
+    - elksearch:elasticsearch

@@ -10,4 +10,4 @@ wget -qO- https://get.docker.com/ | sh
 pip install docker-compose
 
 docker-compose pull
-docker-compose up
+docker-compose up -d

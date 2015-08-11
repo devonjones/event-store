@@ -11,7 +11,7 @@ def gen_logstash_conf(user_id, access_key, secret_key):
 	print "    bucket => \"sg-hack-kibana-ingest\""
 	print "    access_key_id => \"%s\"" % access_key
 	print "    secret_access_key => \"%s\"" % secret_key
-	print "    prefix => \"/%s\"" % user_id
+	print "    prefix => \"%s/\"" % user_id
 	print "    codec => json"
 	print "  }"
 	print "}"
